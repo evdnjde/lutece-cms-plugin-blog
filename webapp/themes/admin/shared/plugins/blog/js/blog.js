@@ -208,25 +208,19 @@ function setListFile( idFile, fileName, fileType, fileExt, blogId ){
 
 function getFile( blogId ) {
 	const file =  document.querySelector('#attachment').files[0];
-	const reader = new FileReader();
-	reader.readAsDataURL( file );
-	reader.onload=function(){
-		const rgx = /image/g;
-		const fileType = rgx.test( file.type ) ? 1 : 2, extension = file.name.split('.').pop().toLowerCase()	
-		doAddContent( file.name, file.size, reader.result, fileType, blogId ).then( resp => {
-			/* call the callback and populate the Title field with the file name */
-			if ( resp.status == 'OK' ){
-			  if( resp.result == "BLOG_LOCKED" ){
-				setBlogToast( 'warning', 'Attention', 'Billet verrouillé !' );
-			  } else {
-				setListFile( resp.result[1], resp.result[0], fileType, extension, blogId )
-			  }
-			}
-		});
-	};
-	reader.onerror = function (error) {
-	  setBlogToast( typeDanger , labelError, error )	
-	};
+    const rgx = /image/g;
+    const fileType = rgx.test( file.type ) ? 1 : 2, extension = file.name.split('.').pop().toLowerCase()
+    doAddContentFormData( file.name, file.size, file, fileType, blogId ).then( resp => {
+        /* call the callback and populate the Title field with the file name */
+        if ( resp.status == 'OK' ){
+          if( resp.result == "BLOG_LOCKED" ){
+            setBlogToast( 'warning', 'Attention', 'Billet verrouillé !' );
+          } else {
+            setListFile( resp.result[1], resp.result[0], fileType, extension, blogId )
+          }
+        }
+    });
+
  }
  
  /* TODO : Is this is pnly used with uploadimage plugin */
@@ -241,6 +235,31 @@ function getFile( blogId ) {
 function deleteFileContent( idContent, idBlog ) {
 	doDeleteContent( idContent, idBlog);
 	document.querySelector( `.blog-resources #doc_${idContent}`).remove();
+}
+
+async function doAddContentFormData( fileName, fileInfo, result, fileType, idBlog ){
+	const formData = new FormData();
+
+	// Convert the JSON data to a JSON string and add it to the FormData object
+	formData.append( 'file', result );
+    formData.append( 'fileName', fileName );
+    formData.append( 'fileType', fileType );
+	if(idBlog !== undefined && idBlog !== null && idBlog !== '' && idBlog !== 0) {
+		formData.append( 'id', idBlog );
+	}
+
+	// Make a POST request with the FormData object
+	const response = await fetch(`${baseUrl}jsp/admin/plugins/blog/DoCreateImage.jsp?action=addContent`, {
+		method: 'POST',
+		datatype : 'multipart/form-data',
+		body: formData,
+	})
+	if (!response.ok) {
+		setBlogToast( typeDanger , labelError, response.statusText )
+	} else {
+		const resp = await response.json();
+		return resp;
+	}
 }
 
 async function doAddContent( fileName, fileInfo, result, fileType, idBlog ){
